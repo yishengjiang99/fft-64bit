@@ -27,7 +27,7 @@ export async function fftmod(n = 12) {
   let wptr = 0;
   const inputPCM = (arr) => {
     arr.forEach((v) => {
-      if (wptr * 2 >= N) wptr = 0;
+      if (wptr * 2 >=2* N) wptr = 0;
       fftInput[2 * wptr] = v;
       fftInput[2 * wptr + 1] = 0;
       wptr++;
