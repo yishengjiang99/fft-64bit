@@ -22,8 +22,8 @@
   </head>
   <body>
     <div id="mocha">
-      <canvas></canvas> <button>play</button> <canvas></canvas>
     </div>
+    <script src='libchar.js'></script>
     <script type="module">
       import {fftmod} from './FFT.js';
       mocha.setup('bdd');
@@ -58,8 +58,28 @@
 
           
         })
+        it('get wavform',async ()=>{
+          const {FFT,iFFT,stblRef,getWaveForm,stbl,complexRef,complex,bit_reverse,instance,heap,module,getFloatFrequencyData,inputPCM}=await fftmod(5);
+          complex.set(new Float64Array(32).fill(0));
+       complex[5]= 11.1;  
+          bit_reverse(complexRef, 5);
+          const r=getWaveForm();
+          chart(mkcanvas(), r[0]);
+          console.log(r[0]);
+          console.log(r[0]);document.body.style.backgroundColor='black';
+          expect(true)
+        })
       });
       mocha.run();
+
+    </script>
+    <script type='modle'>        import {fftmod} from './FFT.js';
+      const {FFT,iFFT,stblRef,getWaveForm,stbl,complexRef,complex,instance,heap,module,getFloatFrequencyData,inputPCM}=await fftmod(5);
+
+      complex.set(new Float64Array(64).fill(0));
+      complex[1]= 1.;
+      const r=getWaveForm();
+      chart(mkcanvas(), r[0]);
     </script>
   </body>
 </html>

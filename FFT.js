@@ -3,7 +3,7 @@ const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
 export async function fftmod(n = 12) {
   const N = 1 << n;
   const { instance, module } = await WebAssembly.instantiate(
-    await (await fetch("./fft.wasm")).arrayBuffer()
+    await (await fetch("fft.wasm")).arrayBuffer()
   );
   const FFT = instance.exports.FFT;
   const iFFT = instance.exports.iFFT;

@@ -2,11 +2,11 @@ window.onerror = (e) =>
   (document.body.innerHTML = e.type + document.body.innerHTML);
 const width = 1024 / 2,
   height = 400;
-export function resetCanvas(canvasCtx) {
+function resetCanvas(canvasCtx) {
   canvasCtx.clearRect(0, 0, width, height);
   canvasCtx.fillRect(0, 0, width, height);
 }
-export function chart(canvasCtx, dataArray) {
+function chart(canvasCtx, dataArray) {
   let sum = 0,
     min = dataArray[0],
     max = dataArray[0];
@@ -33,7 +33,7 @@ export function chart(canvasCtx, dataArray) {
     100
   );
 }
-export function mkcanvas() {
+function mkcanvas() {
   const canvas = document.createElement("canvas");
   canvas.setAttribute("width", width);
   canvas.setAttribute("height", height);
@@ -43,6 +43,7 @@ export function mkcanvas() {
   canvasCtx.strokeStyle = "white";
   canvasCtx.fillStyle = "black";
   canvasCtx.font = "2em";
+  canvas.style='background:black'; //color:black';
   document.body.append(canvas);
   return canvasCtx;
 }
