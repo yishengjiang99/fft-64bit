@@ -1,24 +1,28 @@
+import { wasmbin } from "./fft.wasm.js";
 const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
-
-export async function fftmod(n = 12) {
+const wamod = new WebAssembly.Module(wasmbin);
+function fftmod(n = 12) {
   const N = 1 << n;
-  const { instance, module } = await WebAssembly.instantiate(
-    await (await fetch("fft-64bits/fft.wasm")).arrayBuffer()
-  );
+  const instance = new WebAssembly.Instance(wamod); // await WebAssembly.instantiate(wamod);
   const FFT = instance.exports.FFT;
   const iFFT = instance.exports.iFFT;
   const bit_reverse = instance.exports.bit_reverse;
-  const malloc = instance.exports.malloc;
+  let brk = 0;
+  const sbrk = (len) => {
+    const ret = brk;
+    brk += len;
+    return ret;
+  };
 
   const heap = instance.exports.memory.buffer;
 
-  const stblRef = instance.exports.malloc((N / 4) * sizeof_double);
+  const stblRef = sbrk((N / 4) * sizeof_double);
   const stbl = new Float64Array(heap, stblRef, N / 4);
   for (let i = 0; i < N / 4; i++) {
     stbl[i] = Math.sin((2 * Math.PI * i) / N);
   }
 
-  const complexRef = instance.exports.malloc(N * 10 * sizeof_double);
+  const complexRef = sbrk(N * 10 * sizeof_double);
   const complex = new Float64Array(heap, complexRef, N * 10);
 
   const outputRef = complexRef + 8 * N * sizeof_double;
@@ -39,7 +43,6 @@ export async function fftmod(n = 12) {
       complex[wptr + 1] = 0;
       wptr += 2;
       if (wptr >= rptr + 2 * N) {
-        // bzeroArray(rptr, 2 * N);
         rptr += 2 * N;
         if (rptr >= 10 * N) rptr = 0;
       }
@@ -84,9 +87,10 @@ export async function fftmod(n = 12) {
     bit_reverse,
     getWaveForm,
     instance,
-    module,
+    module: wamod,
     complex,
     heap,
     wptr,
   };
 }
+export default fftmod;
