@@ -1,3 +1,5 @@
 # fft-64bit
  
-i cant event count that high
+webassembly porting of fft.c.
+
+mocha unit testing [test.html] link
