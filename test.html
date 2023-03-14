@@ -15,14 +15,14 @@
 <body>
   <div id="mocha">
   </div>
-  <script src='./chart.js'></script>
+  <script src='chart.js'></script>
   <script type="module">
-    import fftmod from './FFT.js';
+    import {fftmod} from './FFT.js';
     mocha.setup('bdd');
     const expect = chai.expect;
     describe('loading module', () => {
       it('checking basic functions are imported', async () => {
-        const {FFT, stblRef, stbl, complexRef, complex, instance, heap, getFloatFrequencyData, inputPCM} = await fftmod(5);
+        const {FFT, stblRef, stbl, complexRef, complex, instance, heap, module, getFloatFrequencyData, inputPCM} = await fftmod(5);
         expect(stbl[0]).eq(0)
         expect(stbl[1]).gt(0)
         expect(heap instanceof ArrayBuffer);
@@ -30,7 +30,7 @@
         expect(FFT).exist
       });
       it("checking it has pulse", async () => {
-        const {FFT, iFFT, stblRef, stbl, complexRef, complex, instance, heap, getFloatFrequencyData, inputPCM} = await fftmod(5);
+        const {FFT, iFFT, stblRef, stbl, complexRef, complex, instance, heap, module, getFloatFrequencyData, inputPCM} = await fftmod(5);
 
         inputPCM([1]);
         console.log(new Float64Array(heap, complexRef, 30));
@@ -41,7 +41,7 @@
 
       })
       it('enterin to sequence of signals sequentially', async () => {
-        const {FFT, iFFT, stblRef, stbl, complexRef, complex, instance, heap, getFloatFrequencyData, inputPCM} = await fftmod(5);
+        const {FFT, iFFT, stblRef, stbl, complexRef, complex, instance, heap, module, getFloatFrequencyData, inputPCM} = await fftmod(5);
         inputPCM([1, 0, 0, 0]);
         inputPCM([1, 0, 0, 0]);
         const freqbin = getFloatFrequencyData();
@@ -51,14 +51,14 @@
 
       })
       it('get wavform', async () => {
-        const {FFT, iFFT, stblRef, getWaveForm, stbl, complexRef, complex, bit_reverse, instance, heap, getFloatFrequencyData, inputPCM} = await fftmod(5);
+        const {FFT, iFFT, stblRef, getWaveForm, stbl, complexRef, complex, bit_reverse, instance, heap, module, getFloatFrequencyData, inputPCM} = await fftmod(5);
         complex.set(new Float64Array(32).fill(0));
         complex[5] = 11.1;
         bit_reverse(complexRef, 5);
         const r = getWaveForm();
         chart(mkcanvas(), r[0]);
         console.log(r[0]);
-        console.log(r[0]); document.body.style.backgroundColor = 'grey';
+        console.log(r[0]); document.body.style.backgroundColor = 'black';
         expect(true)
       })
     });
@@ -66,7 +66,7 @@
 
   </script>
   <script type='modle'>        import {fftmod} from './FFT.js';
-      const {FFT,iFFT,stblRef,getWaveForm,stbl,complexRef,complex,instance,heap,getFloatFrequencyData,inputPCM}=await fftmod(5);
+
 
       complex.set(new Float64Array(64).fill(0));
       complex[1]= 1.;

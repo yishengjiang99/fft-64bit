@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "make",
     "test": "npx mocha"
   },
   "keywords": [],
