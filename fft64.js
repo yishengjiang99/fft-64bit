@@ -1,6 +1,6 @@
 const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
 
-export default function FFT64(n = 12, module, instance) {
+export default function FFT64(n = 12, instance) {
   const N = 1 << n;
   const FFT = instance.exports.FFT;
   const iFFT = instance.exports.iFFT;
@@ -69,7 +69,6 @@ export default function FFT64(n = 12, module, instance) {
     bit_reverse,
     getWaveForm,
     instance,
-    module,
     complex,
     heap,
     wptr,
