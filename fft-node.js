@@ -24,7 +24,6 @@ export default class FFTNode extends AudioWorkletNode {
       numberOfOutputs: outputChannelCount.length,
       outputChannelCount: outputChannelCount,
       processorOptions: {
-        jsModule: self.jsModule,
         wasmModule: self.wasmModule,
       },
     });
