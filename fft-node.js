@@ -24,12 +24,22 @@ export default class FFTNode extends AudioWorkletNode {
       numberOfOutputs: outputChannelCount.length,
       outputChannelCount: outputChannelCount,
       processorOptions: {
+        jsModule: self.jsModule,
         wasmModule: self.wasmModule,
       },
     });
-    this.port.onmessage = ({ data }) => (this.fftBuffer = data);
+    this.port.onmessage = ({ data: { bins, waveForm } }) => {
+      this.waveFormBuffer = waveForm;
+      this.fftBuffer = bins;
+    };
   }
   getByteTimeDomainData() {
+    return new Float64Array(this.waveFormBuffer);
+  }
+  getWaveForm() {
+    return new Float64Array(this.waveFormBuffer);
+  }
+  getFloatFrequencyData() {
     return new Float64Array(this.fftBuffer);
   }
 }
@@ -42,7 +52,7 @@ class FFTProc extends AudioWorkletProcessor {
     const { wasmModule } = options.processorOptions;
     this.wasmModule = wasmModule;
 
-    this.fft = this.FFT64(5, new WebAssembly.Instance(wasmModule));
+    this.fft = this.FFT64(12, new WebAssembly.Instance(wasmModule));
   }
   FFT64(n = 12, instance) {
     const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
@@ -84,18 +94,14 @@ class FFTProc extends AudioWorkletProcessor {
       FFT(complexRef + rptr, n, stblRef);
       bit_reverse(complexRef + rptr, n);
 
-      return [
-        complex.filter((v, idx) => idx % 2 == 0),
-        complex.filter((v, idx) => idx % 2 == 1),
-      ];
+      return complex.filter((v, idx) => idx < N / 2 && idx % 2 == 1);
     }
     function getWaveForm() {
       bit_reverse(complexRef, n);
       iFFT(complexRef, n, stblRef);
-      return [
-        complex.filter((v, idx) => idx % 2 == 1),
-        complex.filter((v, idx) => idx % 2 == 0),
-      ];
+      return complex
+        .slice(rptr, rptr + N / 2)
+        .filter((v, idx) => idx < N && idx % 2 == 0);
     }
     function reset() {
       wptr = 0;
@@ -128,8 +134,15 @@ class FFTProc extends AudioWorkletProcessor {
     new Promise((r) => r()).then(() => {
       if (input[0]) {
         this.fft.inputPCM(input[0]);
-        const bins = this.fft.getFloatFrequencyData()[0];
-        this.port.postMessage(bins.buffer, [bins.buffer]);
+        const bins = this.fft.getFloatFrequencyData();
+        const waveForms = this.fft.getWaveForm();
+        this.port.postMessage(
+          {
+            bins: bins.buffer,
+            waveForm: waveForms.buffer,
+          },
+          [waveForms.buffer, bins.buffer]
+        );
       }
     });
     return true;
