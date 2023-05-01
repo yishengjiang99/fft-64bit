@@ -51,10 +51,9 @@ class FFTProc extends AudioWorkletProcessor {
     super(options);
     const { wasmModule } = options.processorOptions;
     this.wasmModule = wasmModule;
-
-    this.fft = this.FFT64(12, new WebAssembly.Instance(wasmModule));
+    this.fft = this.FFT64(7, new WebAssembly.Instance(wasmModule));
   }
-  FFT64(n = 12, instance) {
+  FFT64(n, instance) {
     const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
     const N = 1 << n;
     const FFT = instance.exports.FFT;
@@ -100,7 +99,6 @@ class FFTProc extends AudioWorkletProcessor {
       bit_reverse(complexRef, n);
       iFFT(complexRef, n, stblRef);
       return complex
-        .slice(rptr, rptr + N / 2)
         .filter((v, idx) => idx < N && idx % 2 == 0);
     }
     function reset() {
