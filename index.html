@@ -2,27 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>unit test for fft-64.js</title>
+  <title>FFT Spectrum Visualizer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/8.3.2/mocha.min.js"
-    integrity="sha512-TfAL33PtGUxii1awTCbr3qbzQT5fYi7ItCGUfzWlnMJ4cK5BA8JNY4gJzEs+tQVbyElVbtcI2Jlaf9EFVMvyeg=="
-    crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mocha/8.3.2/mocha.min.css"
-    crossorigin="anonymous" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.3.4/chai.min.js" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    #controls {
+      margin-bottom: 20px;
+    }
+    audio {
+      width: 100%;
+      max-width: 800px;
+      margin: 10px 0;
+    }
+    .info {
+      margin: 10px 0;
+      color: #aaa;
+      font-size: 14px;
+    }
+    a {
+      color: #4a9eff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <div id="r">
-    <audio controls src="./song.mp3"></audio>
-    <a href=https://github.com/yishengjiang99/fft-64bit>repo</a>
+  <h1>FFT Spectrum Visualizer</h1>
+  <div id="controls">
+    <audio id="audio" controls src="./song.mp3"></audio>
+    <p class="info">Play the audio to see the real-time frequency spectrum visualization</p>
+    <p class="info"><a href="https://github.com/yishengjiang99/fft-64bit">View on GitHub</a></p>
   </div>
-  <div id="mocha">
-  </div>
+  <div id="visualizer"></div>
+  
   <script type="module">
     import FFTNode from './fft-node.js';
-    mocha.setup('bdd');
-    const expect = chai.expect;
     
     // Frequency Spectrum Visualizer with colored columns
     class SpectrumVisualizer {
@@ -86,36 +111,38 @@
       }
     }
     
-    describe('proc', () => {
-      let procNode, ctx
-      before(async () => {
-        ctx = new AudioContext();
-        await FFTNode.init(ctx);
+    // Initialize audio visualization
+    async function init() {
+      const audioElement = document.getElementById('audio');
+      const ctx = new AudioContext();
+      
+      await FFTNode.init(ctx);
+      const procNode = new FFTNode(ctx, [2]);
+      
+      const source = new MediaElementAudioSourceNode(ctx, {
+        mediaElement: audioElement,
       });
-      beforeEach(async () => procNode = new FFTNode(ctx, [2]));
-
-      it('is a node', async () => {
-        const audioElement = document.querySelector("audio");
-        let source = new MediaElementAudioSourceNode(ctx, {
-          mediaElement: audioElement,
-        });
-        source.connect(procNode).connect(ctx.destination);
-        audioElement.addEventListener("play", async () => {
-          if (ctx.state !== 'running') await ctx.resume();
-          requestAnimationFrame(draw);
-        }, {once: true});
-        
-        const visualizer = new SpectrumVisualizer(document.querySelector('#r'), 1400, 400);
-        
-        function draw() {
-          const frequencyData = procNode.getFloatFrequencyData();
-          visualizer.draw(frequencyData);
-          requestAnimationFrame(draw);
-        }
-        expect(true)
-      })
-    });
-    mocha.run();
+      source.connect(procNode).connect(ctx.destination);
+      
+      const visualizer = new SpectrumVisualizer(
+        document.getElementById('visualizer'), 
+        1400, 
+        400
+      );
+      
+      audioElement.addEventListener("play", async () => {
+        if (ctx.state !== 'running') await ctx.resume();
+        requestAnimationFrame(draw);
+      });
+      
+      function draw() {
+        const frequencyData = procNode.getFloatFrequencyData();
+        visualizer.draw(frequencyData);
+        requestAnimationFrame(draw);
+      }
+    }
+    
+    init().catch(console.error);
   </script>
 </body>
 </html>
