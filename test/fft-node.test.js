@@ -230,11 +230,11 @@ describe('FFTNode', () => {
   });
   
   describe('Module dependencies', () => {
-    it('should only import from fft.wasm.js', () => {
+    it('should only import from build/fft.wasm.js', () => {
       const content = fs.readFileSync('./fft-node.js', 'utf-8');
       const imports = content.match(/^import .* from ['"].*['"]/gm) || [];
       expect(imports.length).to.equal(1);
-      expect(imports[0]).to.include('./fft.wasm.js');
+      expect(imports[0]).to.include('./build/fft.wasm.js');
     });
     
     it('should export FFTNode as default', () => {

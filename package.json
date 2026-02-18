@@ -1,13 +1,22 @@
 {
   "name": "fft-64bit",
   "version": "1.0.0",
-  "description": "",
+  "description": "64-bit FFT for Web Audio using WebAssembly",
   "main": "fft-node.js",
   "type": "module",
   "scripts": {
+    "build": "make all",
+    "build:wasm": "make fft",
+    "build:b64": "make b64",
+    "clean": "make clean",
     "test": "npx mocha test/**/*.test.js --require test/setup.js --timeout 5000"
   },
-  "keywords": [],
+  "keywords": [
+    "fft",
+    "wasm",
+    "audio",
+    "webaudio"
+  ],
   "author": "Yisheng Jiang",
   "license": "ISC",
   "devDependencies": {

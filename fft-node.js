@@ -1,4 +1,4 @@
-import { wasmbin } from "./fft.wasm.js";
+import { wasmbin } from "./build/fft.wasm.js";
 
 function registerProcessor(name, processorCtor) {
   // thanks https://github.com/guest271314/webtransport/blob/main/webTransportAudioWorkletWebAssemblyMemoryGrow.js
