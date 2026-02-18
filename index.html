@@ -20,10 +20,68 @@
   <div id="mocha">
   </div>
   <script type="module">
-    import {mkcanvas, chart} from "https://unpkg.com/mk-60fps@1.1.0/chart.js";
     import FFTNode from './fft-node.js';
     mocha.setup('bdd');
     const expect = chai.expect;
+    
+    // Frequency Spectrum Visualizer with colored columns
+    class SpectrumVisualizer {
+      constructor(container, width = 1400, height = 400) {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.canvas.style.border = '1px solid #333';
+        this.canvas.style.background = '#000';
+        container.appendChild(this.canvas);
+        this.ctx = this.canvas.getContext('2d');
+        this.width = width;
+        this.height = height;
+      }
+      
+      // Create color gradient based on frequency intensity
+      getColor(value, maxValue) {
+        const intensity = Math.min(value / maxValue, 1);
+        const hue = (1 - intensity) * 240; // Blue (240) to Red (0)
+        return `hsl(${hue}, 100%, ${50 + intensity * 30}%)`;
+      }
+      
+      draw(frequencyData) {
+        if (!frequencyData || frequencyData.length === 0) return;
+        
+        const ctx = this.ctx;
+        const width = this.width;
+        const height = this.height;
+        
+        // Clear canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+        
+        const barCount = Math.min(frequencyData.length, 256);
+        const barWidth = width / barCount;
+        
+        // Find max value for normalization
+        const maxValue = Math.max(...frequencyData.slice(0, barCount), 0.1);
+        
+        // Draw frequency bars with colors
+        for (let i = 0; i < barCount; i++) {
+          const value = Math.abs(frequencyData[i]);
+          const normalizedHeight = (value / maxValue) * height * 0.9;
+          const barHeight = Math.max(normalizedHeight, 0);
+          const x = i * barWidth;
+          const y = height - barHeight;
+          
+          // Create gradient for each bar
+          const gradient = ctx.createLinearGradient(x, height, x, y);
+          const color = this.getColor(value, maxValue);
+          gradient.addColorStop(0, color);
+          gradient.addColorStop(1, color.replace('50%', '70%'));
+          
+          ctx.fillStyle = gradient;
+          ctx.fillRect(x, y, barWidth - 1, barHeight);
+        }
+      }
+    }
+    
     describe('proc', () => {
       let procNode, ctx
       before(async () => {
@@ -42,9 +100,12 @@
           if (ctx.state !== 'running') await ctx.resume();
           requestAnimationFrame(draw);
         }, {once: true});
-        const c1 = mkcanvas({title: 'in', container: document.querySelector('#r'), width: 1400, height: 1400});
+        
+        const visualizer = new SpectrumVisualizer(document.querySelector('#r'), 1400, 400);
+        
         function draw() {
-          chart(c1, procNode.getByteTimeDomainData());
+          const frequencyData = procNode.getFloatFrequencyData();
+          visualizer.draw(frequencyData);
           requestAnimationFrame(draw);
         }
         expect(true)
