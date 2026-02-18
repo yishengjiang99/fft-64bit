@@ -2,55 +2,147 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>unit test for fft-64.js</title>
+  <title>FFT Spectrum Visualizer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/8.3.2/mocha.min.js"
-    integrity="sha512-TfAL33PtGUxii1awTCbr3qbzQT5fYi7ItCGUfzWlnMJ4cK5BA8JNY4gJzEs+tQVbyElVbtcI2Jlaf9EFVMvyeg=="
-    crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mocha/8.3.2/mocha.min.css"
-    crossorigin="anonymous" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chai/4.3.4/chai.min.js" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    #controls {
+      margin-bottom: 20px;
+    }
+    audio {
+      width: 100%;
+      max-width: 800px;
+      margin: 10px 0;
+    }
+    .info {
+      margin: 10px 0;
+      color: #aaa;
+      font-size: 14px;
+    }
+    a {
+      color: #4a9eff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <div id="r">
-    <audio controls src="./song.mp3"></audio>
-    <a href=https://github.com/yishengjiang99/fft-64bit>repo</a>
+  <h1>FFT Spectrum Visualizer</h1>
+  <div id="controls">
+    <audio id="audio" controls src="./song.mp3"></audio>
+    <p class="info">Play the audio to see the real-time frequency spectrum visualization</p>
+    <p class="info"><a href="https://github.com/yishengjiang99/fft-64bit">View on GitHub</a></p>
   </div>
-  <div id="mocha">
-  </div>
+  <div id="visualizer"></div>
+  
   <script type="module">
-    import {mkcanvas, chart} from "https://unpkg.com/mk-60fps@1.1.0/chart.js";
     import FFTNode from './fft-node.js';
-    mocha.setup('bdd');
-    const expect = chai.expect;
-    describe('proc', () => {
-      let procNode, ctx
-      before(async () => {
-        ctx = new AudioContext();
-        await FFTNode.init(ctx);
-      });
-      beforeEach(async () => procNode = new FFTNode(ctx, [2]));
-
-      it('is a node', async () => {
-        const audioElement = document.querySelector("audio");
-        let source = new MediaElementAudioSourceNode(ctx, {
-          mediaElement: audioElement,
-        });
-        source.connect(procNode).connect(ctx.destination);
-        audioElement.addEventListener("play", async () => {
-          if (ctx.state !== 'running') await ctx.resume();
-          requestAnimationFrame(draw);
-        }, {once: true});
-        const c1 = mkcanvas({title: 'in', container: document.querySelector('#r'), width: 1400, height: 1400});
-        function draw() {
-          chart(c1, procNode.getByteTimeDomainData());
-          requestAnimationFrame(draw);
+    
+    // Frequency Spectrum Visualizer with colored columns
+    class SpectrumVisualizer {
+      constructor(container, width = 1400, height = 400) {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.canvas.style.border = '1px solid #333';
+        this.canvas.style.background = '#000';
+        container.appendChild(this.canvas);
+        this.ctx = this.canvas.getContext('2d');
+        this.width = width;
+        this.height = height;
+      }
+      
+      // Create color gradient based on frequency intensity
+      getColor(value, maxValue) {
+        const intensity = Math.min(value / maxValue, 1);
+        const hue = (1 - intensity) * 240; // Blue (240) to Red (0)
+        const lightness = 50 + intensity * 30;
+        return { hue, lightness };
+      }
+      
+      draw(frequencyData) {
+        if (!frequencyData || frequencyData.length === 0) return;
+        
+        const ctx = this.ctx;
+        const width = this.width;
+        const height = this.height;
+        
+        // Clear canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+        
+        const barCount = Math.min(frequencyData.length, 256);
+        const barWidth = width / barCount;
+        
+        // Find max value for normalization
+        let maxValue = 0.1;
+        for (let i = 0; i < barCount; i++) {
+          maxValue = Math.max(maxValue, frequencyData[i]);
         }
-        expect(true)
-      })
-    });
-    mocha.run();
+        
+        // Draw frequency bars with colors
+        for (let i = 0; i < barCount; i++) {
+          const value = Math.abs(frequencyData[i]);
+          const normalizedHeight = (value / maxValue) * height * 0.9;
+          const barHeight = Math.max(normalizedHeight, 0);
+          const x = i * barWidth;
+          const y = height - barHeight;
+          
+          // Create gradient for each bar
+          const gradient = ctx.createLinearGradient(x, height, x, y);
+          const color = this.getColor(value, maxValue);
+          gradient.addColorStop(0, `hsl(${color.hue}, 100%, ${color.lightness}%)`);
+          gradient.addColorStop(1, `hsl(${color.hue}, 100%, ${Math.min(color.lightness + 20, 90)}%)`);
+          
+          ctx.fillStyle = gradient;
+          ctx.fillRect(x, y, barWidth - 1, barHeight);
+        }
+      }
+    }
+    
+    // Initialize audio visualization
+    async function init() {
+      const audioElement = document.getElementById('audio');
+      const ctx = new AudioContext();
+      
+      await FFTNode.init(ctx);
+      const procNode = new FFTNode(ctx, [2]);
+      
+      const source = new MediaElementAudioSourceNode(ctx, {
+        mediaElement: audioElement,
+      });
+      source.connect(procNode).connect(ctx.destination);
+      
+      const visualizer = new SpectrumVisualizer(
+        document.getElementById('visualizer'), 
+        1400, 
+        400
+      );
+      
+      audioElement.addEventListener("play", async () => {
+        if (ctx.state !== 'running') await ctx.resume();
+        requestAnimationFrame(draw);
+      });
+      
+      function draw() {
+        const frequencyData = procNode.getFloatFrequencyData();
+        visualizer.draw(frequencyData);
+        requestAnimationFrame(draw);
+      }
+    }
+    
+    init().catch(console.error);
   </script>
 </body>
 </html>
