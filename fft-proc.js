@@ -91,12 +91,14 @@ class FFTProc extends AudioWorkletProcessor {
     };
     function getFloatFrequencyData() {
       FFT(complexRef, n, stblRef);
+      bit_reverse(complexRef, n);
 
       return complex.filter((v, idx) => idx < N / 2 && idx % 2 == 1);
     }
     function getWaveForm() {
+      bit_reverse(complexRef, n);
       iFFT(complexRef, n, stblRef);
-      return complex.slice(0, N / 6).filter((v, idx) => idx % 2 == 0);
+      return complex.filter((v, idx) => idx < N && idx % 2 == 0);
     }
     function reset() {
       wptr = 0;
