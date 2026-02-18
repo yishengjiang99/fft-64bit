@@ -42,7 +42,8 @@
       getColor(value, maxValue) {
         const intensity = Math.min(value / maxValue, 1);
         const hue = (1 - intensity) * 240; // Blue (240) to Red (0)
-        return `hsl(${hue}, 100%, ${50 + intensity * 30}%)`;
+        const lightness = 50 + intensity * 30;
+        return { hue, lightness };
       }
       
       draw(frequencyData) {
@@ -60,7 +61,10 @@
         const barWidth = width / barCount;
         
         // Find max value for normalization
-        const maxValue = Math.max(...frequencyData.slice(0, barCount), 0.1);
+        let maxValue = 0.1;
+        for (let i = 0; i < barCount; i++) {
+          maxValue = Math.max(maxValue, frequencyData[i]);
+        }
         
         // Draw frequency bars with colors
         for (let i = 0; i < barCount; i++) {
@@ -73,8 +77,8 @@
           // Create gradient for each bar
           const gradient = ctx.createLinearGradient(x, height, x, y);
           const color = this.getColor(value, maxValue);
-          gradient.addColorStop(0, color);
-          gradient.addColorStop(1, color.replace('50%', '70%'));
+          gradient.addColorStop(0, `hsl(${color.hue}, 100%, ${color.lightness}%)`);
+          gradient.addColorStop(1, `hsl(${color.hue}, 100%, ${Math.min(color.lightness + 20, 90)}%)`);
           
           ctx.fillStyle = gradient;
           ctx.fillRect(x, y, barWidth - 1, barHeight);
