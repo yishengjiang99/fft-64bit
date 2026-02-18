@@ -51,7 +51,7 @@ class FFTProc extends AudioWorkletProcessor {
     super(options);
     const { wasmModule } = options.processorOptions;
     this.wasmModule = wasmModule;
-    this.fft = this.FFT64(7, new WebAssembly.Instance(wasmModule));
+    this.fft = this.FFT64(12, new WebAssembly.Instance(wasmModule));
   }
   FFT64(n, instance) {
     const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
