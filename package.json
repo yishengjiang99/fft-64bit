@@ -2,15 +2,17 @@
   "name": "fft-64bit",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "fft-node.js",
+  "type": "module",
   "scripts": {
-    "test": "npx mocha"
+    "test": "npx mocha test/**/*.test.js --require test/setup.js --timeout 5000"
   },
   "keywords": [],
   "author": "Yisheng Jiang",
   "license": "ISC",
   "devDependencies": {
     "chai": "^4.5.0",
+    "jsdom": "^28.1.0",
     "mocha": "^11.0.0"
   }
 }
