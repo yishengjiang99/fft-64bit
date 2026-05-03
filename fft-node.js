@@ -1,148 +1,144 @@
 import { wasmbin } from "./build/fft.wasm.js";
 
-function registerProcessor(name, processorCtor) {
-  // thanks https://github.com/guest271314/webtransport/blob/main/webTransportAudioWorkletWebAssemblyMemoryGrow.js
-  return `console.log(globalThis);\n${processorCtor};\nregisterProcessor('${name}', ${processorCtor.name});`;
-}
-export default class FFTNode extends AudioWorkletNode {
-  static async init(ctx) {
-    const procUrl = URL.createObjectURL(
-      new Blob([registerProcessor("proc-fft", FFTProc)], {
-        type: "text/javascript",
-      }),
-      { type: "module" }
-    );
-    self.wasmModule = await WebAssembly.compile(wasmbin);
-
-    await ctx.audioWorklet
-      .addModule(procUrl, { credentials: "omit" })
-      .catch((e) => console.trace(e));
+function buildProcessorSource(name) {
+  return `
+class FFTProc extends AudioWorkletProcessor {
+  constructor(options) {
+    super(options);
+    const { wasmModule } = options.processorOptions;
+    this.fft = this.FFT64(7, new WebAssembly.Instance(wasmModule));
   }
+
+  FFT64(n, instance) {
+    const sizeofDouble = Float64Array.BYTES_PER_ELEMENT;
+    const N = 1 << n;
+    const FFT = instance.exports.FFT;
+    const iFFT = instance.exports.iFFT;
+    const bitReverse = instance.exports.bit_reverse;
+    const heap = instance.exports.memory.buffer;
+    const stblRef = instance.exports.malloc((N / 4) * sizeofDouble);
+    const stbl = new Float64Array(heap, stblRef, N / 4);
+
+    for (let i = 0; i < N / 4; i++) {
+      stbl[i] = Math.sin((2 * Math.PI * i) / N);
+    }
+
+    const complexRef = instance.exports.malloc(N * 2 * sizeofDouble);
+    const complex = new Float64Array(heap, complexRef, 2 * N);
+
+    function clearComplex() {
+      complex.fill(0);
+    }
+
+    function inputPCM(samples) {
+      clearComplex();
+      const limit = Math.min(samples.length, N);
+      for (let i = 0; i < limit; i++) {
+        complex[i * 2] = samples[i];
+      }
+    }
+
+    function getFloatFrequencyData() {
+      FFT(complexRef, n, stblRef);
+      bitReverse(complexRef, n);
+      return complex.filter((value, index) => index < N && index % 2 === 1);
+    }
+
+    function getWaveForm() {
+      bitReverse(complexRef, n);
+      iFFT(complexRef, n, stblRef);
+      return complex.filter((value, index) => index < 2 * N && index % 2 === 0);
+    }
+
+    return {
+      getFloatFrequencyData,
+      getWaveForm,
+      inputPCM,
+    };
+  }
+
+  process(inputs, outputs) {
+    const input = inputs[0];
+    const output = outputs[0];
+
+    for (let channel = 0; channel < output.length; channel++) {
+      if (input[channel]) {
+        output[channel].set(input[channel]);
+      }
+    }
+
+    if (input[0]) {
+      this.fft.inputPCM(input[0]);
+      const bins = this.fft.getFloatFrequencyData();
+      const waveForm = this.fft.getWaveForm();
+      this.port.postMessage(
+        {
+          bins: bins.buffer,
+          waveForm: waveForm.buffer,
+        },
+        [waveForm.buffer, bins.buffer]
+      );
+    }
+
+    return true;
+  }
+}
+
+registerProcessor(${JSON.stringify(name)}, FFTProc);
+//# sourceURL=fft-worklet.js
+`;
+}
+
+export default class FFTNode extends AudioWorkletNode {
+  static wasmModule = null;
+
+  static async init(ctx) {
+    if (!FFTNode.wasmModule) {
+      FFTNode.wasmModule = await WebAssembly.compile(wasmbin);
+    }
+
+    const procUrl = URL.createObjectURL(
+      new Blob([buildProcessorSource("proc-fft")], {
+        type: "text/javascript",
+      })
+    );
+
+    try {
+      await ctx.audioWorklet.addModule(procUrl, { credentials: "omit" });
+    } finally {
+      URL.revokeObjectURL(procUrl);
+    }
+  }
+
   constructor(ctx, outputChannelCount = [2]) {
     super(ctx, "proc-fft", {
       numberOfInputs: outputChannelCount.length,
       numberOfOutputs: outputChannelCount.length,
-      outputChannelCount: outputChannelCount,
+      outputChannelCount,
       processorOptions: {
-        jsModule: self.jsModule,
-        wasmModule: self.wasmModule,
+        wasmModule: FFTNode.wasmModule,
       },
     });
+
+    this.waveFormBuffer = null;
+    this.fftBuffer = null;
     this.port.onmessage = ({ data: { bins, waveForm } }) => {
       this.waveFormBuffer = waveForm;
       this.fftBuffer = bins;
     };
   }
+
   getByteTimeDomainData() {
-    return new Float64Array(this.waveFormBuffer);
+    return this.getWaveForm();
   }
+
   getWaveForm() {
-    return new Float64Array(this.waveFormBuffer);
+    return this.waveFormBuffer
+      ? new Float64Array(this.waveFormBuffer)
+      : new Float64Array(0);
   }
+
   getFloatFrequencyData() {
-    return new Float64Array(this.fftBuffer);
-  }
-}
-
-class AudioWorkletProcessor {}
-
-class FFTProc extends AudioWorkletProcessor {
-  constructor(options) {
-    super(options);
-    const { wasmModule } = options.processorOptions;
-    this.wasmModule = wasmModule;
-    this.fft = this.FFT64(12, new WebAssembly.Instance(wasmModule));
-  }
-  FFT64(n, instance) {
-    const sizeof_double = Float64Array.BYTES_PER_ELEMENT;
-    const N = 1 << n;
-    const FFT = instance.exports.FFT;
-    const iFFT = instance.exports.iFFT;
-    const bit_reverse = instance.exports.bit_reverse;
-
-    const heap = instance.exports.memory.buffer;
-
-    const stblRef = instance.exports.malloc((N / 4) * sizeof_double);
-    const stbl = new Float64Array(heap, stblRef, N / 4);
-    for (let i = 0; i < N / 4; i++) {
-      stbl[i] = Math.sin((2 * Math.PI * i) / N);
-    }
-
-    const complexRef = instance.exports.malloc(N * 2 * sizeof_double);
-    const complex = new Float64Array(heap, complexRef, 2 * N);
-
-    let wptr = 0,
-      rptr = 0;
-
-    function bzeroArray(ref, k) {
-      for (let i = 0; i < k; i++) {
-        complex[ref + i] = 0;
-      }
-    }
-
-    const inputPCM = (arr) => {
-      bzeroArray(complexRef, N);
-      wptr = 0;
-      arr.forEach((v) => {
-        complex[wptr] = v;
-        complex[wptr + 1] = 0;
-        wptr += 2;
-      });
-    };
-    function getFloatFrequencyData() {
-      FFT(complexRef + rptr, n, stblRef);
-      bit_reverse(complexRef + rptr, n);
-
-      return complex.filter((v, idx) => idx < N / 2 && idx % 2 == 1);
-    }
-    function getWaveForm() {
-      bit_reverse(complexRef, n);
-      iFFT(complexRef, n, stblRef);
-      return complex
-        .filter((v, idx) => idx < N && idx % 2 == 0);
-    }
-    function reset() {
-      wptr = 0;
-      rptr = 0;
-      bzeroArray(complexRef, 10 * N);
-    }
-    return {
-      stbl,
-      reset,
-      stblRef,
-      complexRef,
-      getFloatFrequencyData,
-      inputPCM,
-      FFT,
-      iFFT,
-      bit_reverse,
-      getWaveForm,
-      instance,
-      complex,
-      heap,
-      wptr,
-    };
-  }
-  process(inputs, outputs) {
-    const input = inputs[0];
-    const output = outputs[0];
-    for (let channel = 0; channel < output.length; channel++) {
-      if (input[channel]) output[channel].set(input[channel]);
-    }
-    new Promise((r) => r()).then(() => {
-      if (input[0]) {
-        this.fft.inputPCM(input[0]);
-        const bins = this.fft.getFloatFrequencyData();
-        const waveForms = this.fft.getWaveForm();
-        this.port.postMessage(
-          {
-            bins: bins.buffer,
-            waveForm: waveForms.buffer,
-          },
-          [waveForms.buffer, bins.buffer]
-        );
-      }
-    });
-    return true;
+    return this.fftBuffer ? new Float64Array(this.fftBuffer) : new Float64Array(0);
   }
 }
